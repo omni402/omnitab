@@ -17,6 +17,7 @@ contract EdgePayment is OApp, ReentrancyGuard {
     uint32 public immutable hubEid;
 
     uint256 public vault;
+    uint256 public replenishThreshold;
 
     uint128 public lzGasLimit = 200000;
 
@@ -28,6 +29,9 @@ contract EdgePayment is OApp, ReentrancyGuard {
         uint256 fee
     );
     event MessageSent(bytes32 indexed paymentId, bytes32 guid);
+    event VaultWithdrawn(address indexed to, uint256 amount);
+    event ReplenishThresholdUpdated(uint256 oldThreshold, uint256 newThreshold);
+    event ReplenishTriggered(uint256 vaultBalance);
 
     constructor(
         address _endpoint,
@@ -83,6 +87,30 @@ contract EdgePayment is OApp, ReentrancyGuard {
 
     function setLzGasLimit(uint128 _gasLimit) external onlyOwner {
         lzGasLimit = _gasLimit;
+    }
+
+    function setReplenishThreshold(uint256 _threshold) external onlyOwner {
+        uint256 oldThreshold = replenishThreshold;
+        replenishThreshold = _threshold;
+        emit ReplenishThresholdUpdated(oldThreshold, _threshold);
+    }
+
+    function withdrawVault(address to, uint256 amount) external onlyOwner nonReentrant {
+        require(amount > 0 && amount <= vault, "Invalid amount");
+
+        vault -= amount;
+        usdc.safeTransfer(to, amount);
+
+        emit VaultWithdrawn(to, amount);
+    }
+
+    function shouldReplenish() external view returns (bool) {
+        return vault >= replenishThreshold && replenishThreshold > 0;
+    }
+
+    function triggerReplenish() external {
+        require(vault >= replenishThreshold && replenishThreshold > 0, "Threshold not reached");
+        emit ReplenishTriggered(vault);
     }
 
     function _lzReceive(

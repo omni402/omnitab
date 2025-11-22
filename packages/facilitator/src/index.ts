@@ -5,11 +5,21 @@ import { settlePayment } from "./settle";
 import { getSupported } from "./supported";
 import { VerifyRequestSchema } from "./schemas";
 import { config } from "./config";
+import { prisma } from "./db";
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    console.log(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
+  });
+  next();
+});
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
@@ -69,6 +79,16 @@ app.post("/settle", async (req, res) => {
   }
 });
 
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   console.log(`Facilitator running on port ${config.port}`);
 });
+
+async function shutdown() {
+  console.log("Shutting down...");
+  server.close();
+  await prisma.$disconnect();
+  process.exit(0);
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

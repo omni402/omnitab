@@ -1,17 +1,31 @@
 import express from "express";
 import dotenv from "dotenv";
+import { verifyPayment } from "./verify";
+import { config } from "./config";
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 3001;
-
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
-  console.log(`Facilitator running on port ${PORT}`);
+app.post("/verify", async (req, res) => {
+  try {
+    const result = await verifyPayment(req.body);
+    res.json(result);
+  } catch (error) {
+    console.error("Verify error:", error);
+    res.status(500).json({
+      isValid: false,
+      invalidReason: "network_error",
+      payer: null,
+    });
+  }
+});
+
+app.listen(config.port, () => {
+  console.log(`Facilitator running on port ${config.port}`);
 });

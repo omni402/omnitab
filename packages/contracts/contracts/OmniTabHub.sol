@@ -23,6 +23,8 @@ contract OmniTabHub is OApp, ReentrancyGuard, ILayerZeroComposer {
     mapping(uint32 => bool) public trustedEdges;
 
     event ComposeReceived(address indexed from, bytes32 guid, bytes message);
+    event TrustedEdgeUpdated(uint32 indexed eid, bool trusted);
+    event SettlementPoolUpdated(address oldPool, address newPool);
 
     event PaymentReceived(
         bytes32 indexed paymentId,
@@ -64,6 +66,21 @@ contract OmniTabHub is OApp, ReentrancyGuard, ILayerZeroComposer {
         settlementPool.settle(merchant, amount);
 
         emit PaymentReceived(paymentId, merchant, amount, fee, _origin.srcEid);
+    }
+
+    function setTrustedEdge(uint32 _eid, bool _trusted) external onlyOwner {
+        trustedEdges[_eid] = _trusted;
+        emit TrustedEdgeUpdated(_eid, _trusted);
+    }
+
+    function setSettlementPool(address _settlementPool) external onlyOwner {
+        address oldPool = address(settlementPool);
+        settlementPool = ISettlementPool(_settlementPool);
+        emit SettlementPoolUpdated(oldPool, _settlementPool);
+    }
+
+    function isPaymentProcessed(bytes32 paymentId) external view returns (bool) {
+        return processedPayments[paymentId];
     }
 
     function lzCompose(

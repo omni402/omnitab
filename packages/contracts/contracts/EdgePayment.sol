@@ -8,6 +8,9 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { OApp, MessagingFee, Origin } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
 import { OptionsBuilder } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
 
+/// @title EdgePayment
+/// @notice Edge chain contract for processing x402 payments and sending LayerZero messages to hub
+/// @dev Deployed on source chains (Arbitrum, Polygon) to accept payments and notify Base hub
 contract EdgePayment is OApp, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using OptionsBuilder for bytes;

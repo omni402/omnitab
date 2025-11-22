@@ -13,6 +13,9 @@ interface ISettlementPool {
     function replenish(uint256 amount) external;
 }
 
+/// @title OmniTabHub
+/// @notice Central hub on Base that receives cross-chain payment confirmations and triggers settlements
+/// @dev Receives LayerZero messages from edge chains and coordinates with SettlementPool
 contract OmniTabHub is OApp, ReentrancyGuard, ILayerZeroComposer {
     using SafeERC20 for IERC20;
 

@@ -6,6 +6,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+/// @title SettlementPool
+/// @notice USDC liquidity pool for instant x402 payment settlements
+/// @dev Provides float for OmniTab hub to settle payments before cross-chain funds arrive
 contract SettlementPool is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 

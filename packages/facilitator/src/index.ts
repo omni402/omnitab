@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import { verifyPayment } from "./verify";
+import { settlePayment } from "./settle";
 import { config } from "./config";
 
 dotenv.config();
@@ -21,6 +22,22 @@ app.post("/verify", async (req, res) => {
     res.status(500).json({
       isValid: false,
       invalidReason: "network_error",
+      payer: null,
+    });
+  }
+});
+
+app.post("/settle", async (req, res) => {
+  try {
+    const result = await settlePayment(req.body);
+    res.json(result);
+  } catch (error) {
+    console.error("Settle error:", error);
+    res.status(500).json({
+      success: false,
+      errorReason: "network_error",
+      transaction: "",
+      network: "",
       payer: null,
     });
   }

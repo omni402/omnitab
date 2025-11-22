@@ -38,4 +38,28 @@ contract OmniTabHub is OApp, ReentrancyGuard {
         usdc = IERC20(_usdc);
         settlementPool = ISettlementPool(_settlementPool);
     }
+
+    function _lzReceive(
+        Origin calldata _origin,
+        bytes32 /*_guid*/,
+        bytes calldata _message,
+        address /*_executor*/,
+        bytes calldata /*_extraData*/
+    ) internal override {
+        require(trustedEdges[_origin.srcEid], "Untrusted source");
+
+        (
+            bytes32 paymentId,
+            address merchant,
+            uint256 amount,
+            uint256 fee
+        ) = abi.decode(_message, (bytes32, address, uint256, uint256));
+
+        require(!processedPayments[paymentId], "Payment already processed");
+        processedPayments[paymentId] = true;
+
+        settlementPool.settle(merchant, amount);
+
+        emit PaymentReceived(paymentId, merchant, amount, fee, _origin.srcEid);
+    }
 }

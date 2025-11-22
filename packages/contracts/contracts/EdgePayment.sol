@@ -35,4 +35,32 @@ contract EdgePayment is OApp, ReentrancyGuard {
         usdc = IERC20(_usdc);
         hubEid = _hubEid;
     }
+
+    function pay(
+        bytes32 paymentId,
+        address merchant,
+        uint256 amount,
+        uint256 fee
+    ) external payable nonReentrant {
+        require(amount > 0, "Amount must be greater than 0");
+
+        uint256 total = amount + fee;
+
+        usdc.safeTransferFrom(msg.sender, address(this), total);
+
+        vault += total;
+
+        emit PaymentProcessed(paymentId, msg.sender, merchant, amount, fee);
+    }
+
+    function _lzReceive(
+        Origin calldata /*_origin*/,
+        bytes32 /*_guid*/,
+        bytes calldata /*_message*/,
+        address /*_executor*/,
+        bytes calldata /*_extraData*/
+    ) internal override {
+        // Edge contracts don't receive messages from hub
+        revert("Not implemented");
+    }
 }

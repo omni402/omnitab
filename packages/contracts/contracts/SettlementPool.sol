@@ -16,12 +16,22 @@ contract SettlementPool is Ownable, ReentrancyGuard {
     uint256 public poolCap;
     bool public depositsEnabled;
 
+    address public hub;
+
     mapping(address => uint256) public lpShares;
 
     event Deposited(address indexed lp, uint256 amount, uint256 shares);
     event Withdrawn(address indexed lp, uint256 shares, uint256 amount);
     event PoolCapUpdated(uint256 oldCap, uint256 newCap);
     event DepositsEnabled(bool enabled);
+    event HubUpdated(address oldHub, address newHub);
+    event Settled(address indexed merchant, uint256 amount);
+    event Replenished(uint256 amount);
+
+    modifier onlyHub() {
+        require(msg.sender == hub, "Only hub can call");
+        _;
+    }
 
     constructor(address _usdc, uint256 _poolCap) Ownable(msg.sender) {
         usdc = IERC20(_usdc);
@@ -58,6 +68,33 @@ contract SettlementPool is Ownable, ReentrancyGuard {
     function setDepositsEnabled(bool _enabled) external onlyOwner {
         depositsEnabled = _enabled;
         emit DepositsEnabled(_enabled);
+    }
+
+    function setHub(address _hub) external onlyOwner {
+        address oldHub = hub;
+        hub = _hub;
+        emit HubUpdated(oldHub, _hub);
+    }
+
+    function settle(address merchant, uint256 amount) external onlyHub nonReentrant {
+        require(amount > 0, "Amount must be greater than 0");
+        require(totalLiquidity >= amount, "Insufficient liquidity");
+
+        totalLiquidity -= amount;
+
+        usdc.safeTransfer(merchant, amount);
+
+        emit Settled(merchant, amount);
+    }
+
+    function replenish(uint256 amount) external onlyHub nonReentrant {
+        require(amount > 0, "Amount must be greater than 0");
+
+        usdc.safeTransferFrom(msg.sender, address(this), amount);
+
+        totalLiquidity += amount;
+
+        emit Replenished(amount);
     }
 
     function withdraw(uint256 shares) external nonReentrant returns (uint256 amount) {

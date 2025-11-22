@@ -7,8 +7,13 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
+    "simulate": "hardhat run scripts/simulate.ts",
+    "deploy:base": "hardhat run scripts/deploy.ts --network base",
+    "deploy:arbitrum": "hardhat run scripts/deploy.ts --network arbitrum",
+    "deploy:polygon": "hardhat run scripts/deploy.ts --network polygon",
     "deploy:base-sepolia": "hardhat run scripts/deploy.ts --network baseSepolia",
     "deploy:arbitrum-sepolia": "hardhat run scripts/deploy.ts --network arbitrumSepolia",
+    "deploy:polygon-amoy": "hardhat run scripts/deploy.ts --network polygonAmoy",
     "clean": "hardhat clean"
   },
   "keywords": [],
@@ -23,8 +28,12 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@1inch/cross-chain-sdk": "^1.1.1",
+    "@1inch/swap-vm": "github:1inch/swap-vm#0.0.4",
     "@layerzerolabs/lz-evm-oapp-v2": "^3.0.147",
     "@layerzerolabs/lz-evm-protocol-v2": "^3.0.147",
-    "@openzeppelin/contracts": "^5.4.0"
+    "@openzeppelin/contracts": "^5.4.0",
+    "dotenv": "^17.2.3",
+    "web3": "^4.16.0"
   }
 }

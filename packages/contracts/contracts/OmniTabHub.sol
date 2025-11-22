@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { OApp, MessagingFee, Origin } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
 import { ILayerZeroComposer } from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroComposer.sol";
+import { MessagingParams } from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import { OptionsBuilder } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
 
 interface ISettlementPool {
@@ -119,7 +120,15 @@ contract OmniTabHub is OApp, ReentrancyGuard, ILayerZeroComposer {
         bytes memory returnPayload = abi.encode(paymentId);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(returnGasLimit, 0);
 
-        bytes32 guid = _lzSend(srcEid, returnPayload, options, MessagingFee(msg.value, 0), payable(address(this))).guid;
+        // Quote the return message fee
+        MessagingFee memory returnFee = _quote(srcEid, returnPayload, options, false);
+        require(address(this).balance >= returnFee.nativeFee, "Insufficient ETH for return message");
+
+        // Send return message using endpoint directly (pays from contract balance)
+        bytes32 guid = endpoint.send{ value: returnFee.nativeFee }(
+            MessagingParams(srcEid, _getPeerOrRevert(srcEid), returnPayload, options, false),
+            payable(address(this))
+        ).guid;
 
         emit SettlementConfirmationSent(paymentId, srcEid, guid);
     }

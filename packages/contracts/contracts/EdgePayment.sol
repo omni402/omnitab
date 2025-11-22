@@ -18,6 +18,8 @@ contract EdgePayment is OApp, ReentrancyGuard {
 
     uint256 public vault;
 
+    uint128 public lzGasLimit = 200000;
+
     event PaymentProcessed(
         bytes32 indexed paymentId,
         address indexed payer,
@@ -25,6 +27,7 @@ contract EdgePayment is OApp, ReentrancyGuard {
         uint256 amount,
         uint256 fee
     );
+    event MessageSent(bytes32 indexed paymentId, bytes32 guid);
 
     constructor(
         address _endpoint,
@@ -51,6 +54,35 @@ contract EdgePayment is OApp, ReentrancyGuard {
         vault += total;
 
         emit PaymentProcessed(paymentId, msg.sender, merchant, amount, fee);
+
+        bytes memory payload = abi.encode(paymentId, merchant, amount, fee);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(lzGasLimit, 0);
+
+        MessagingFee memory msgFee = _quote(hubEid, payload, options, false);
+        require(msg.value >= msgFee.nativeFee, "Insufficient fee for LZ message");
+
+        bytes32 guid = _lzSend(hubEid, payload, options, msgFee, payable(msg.sender)).guid;
+
+        emit MessageSent(paymentId, guid);
+
+        if (msg.value > msgFee.nativeFee) {
+            payable(msg.sender).transfer(msg.value - msgFee.nativeFee);
+        }
+    }
+
+    function quote(
+        bytes32 paymentId,
+        address merchant,
+        uint256 amount,
+        uint256 fee
+    ) external view returns (MessagingFee memory) {
+        bytes memory payload = abi.encode(paymentId, merchant, amount, fee);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(lzGasLimit, 0);
+        return _quote(hubEid, payload, options, false);
+    }
+
+    function setLzGasLimit(uint128 _gasLimit) external onlyOwner {
+        lzGasLimit = _gasLimit;
     }
 
     function _lzReceive(

@@ -13,18 +13,26 @@ contract SettlementPool is Ownable, ReentrancyGuard {
 
     uint256 public totalShares;
     uint256 public totalLiquidity;
+    uint256 public poolCap;
+    bool public depositsEnabled;
 
     mapping(address => uint256) public lpShares;
 
     event Deposited(address indexed lp, uint256 amount, uint256 shares);
     event Withdrawn(address indexed lp, uint256 shares, uint256 amount);
+    event PoolCapUpdated(uint256 oldCap, uint256 newCap);
+    event DepositsEnabled(bool enabled);
 
-    constructor(address _usdc) Ownable(msg.sender) {
+    constructor(address _usdc, uint256 _poolCap) Ownable(msg.sender) {
         usdc = IERC20(_usdc);
+        poolCap = _poolCap;
+        depositsEnabled = true;
     }
 
     function deposit(uint256 amount) external nonReentrant returns (uint256 shares) {
+        require(depositsEnabled, "Deposits are disabled");
         require(amount > 0, "Amount must be greater than 0");
+        require(totalLiquidity + amount <= poolCap, "Pool cap exceeded");
 
         if (totalShares == 0) {
             shares = amount;
@@ -39,6 +47,17 @@ contract SettlementPool is Ownable, ReentrancyGuard {
         lpShares[msg.sender] += shares;
 
         emit Deposited(msg.sender, amount, shares);
+    }
+
+    function setPoolCap(uint256 _poolCap) external onlyOwner {
+        uint256 oldCap = poolCap;
+        poolCap = _poolCap;
+        emit PoolCapUpdated(oldCap, _poolCap);
+    }
+
+    function setDepositsEnabled(bool _enabled) external onlyOwner {
+        depositsEnabled = _enabled;
+        emit DepositsEnabled(_enabled);
     }
 
     function withdraw(uint256 shares) external nonReentrant returns (uint256 amount) {

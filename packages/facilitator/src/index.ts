@@ -6,6 +6,7 @@ import { getSupported } from "./supported";
 import { VerifyRequestSchema } from "./schemas";
 import { config } from "./config";
 import { prisma } from "./db";
+import { startEventListener } from "./listener";
 
 dotenv.config();
 
@@ -79,8 +80,9 @@ app.post("/settle", async (req, res) => {
   }
 });
 
-const server = app.listen(config.port, () => {
+const server = app.listen(config.port, async () => {
   console.log(`Facilitator running on port ${config.port}`);
+  await startEventListener();
 });
 
 async function shutdown() {

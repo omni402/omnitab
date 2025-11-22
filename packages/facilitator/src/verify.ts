@@ -87,7 +87,7 @@ export async function verifyPayment(req: VerifyRequest): Promise<VerifyResponse>
     }
 
     // Verify invoice ID matches
-    if (paymentEvent.invoiceId.toLowerCase() !== invoiceId.toLowerCase()) {
+    if (paymentEvent.paymentId.toLowerCase() !== invoiceId.toLowerCase()) {
       return {
         isValid: false,
         invalidReason: "invoice_mismatch",

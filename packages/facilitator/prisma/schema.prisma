@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  invoiceId       String   @map("invoice_id")
+  sourceChain     Int      @map("source_chain")
+  payerAddress    String   @map("payer_address")
+  merchantAddress String   @map("merchant_address")
+  amount          Decimal
+  edgeTxHash      String   @unique @map("edge_tx_hash")
+  lzMessageId     String   @map("lz_message_id")
+  status          String   @default("pending")
+  createdAt       DateTime @default(now()) @map("created_at")
+  settledAt       DateTime? @map("settled_at")
+  settlementTxHash String? @map("settlement_tx_hash")
+
+  @@index([invoiceId])
+  @@index([edgeTxHash])
+  @@index([status])
+  @@map("payments")
+}

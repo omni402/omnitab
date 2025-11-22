@@ -23,6 +23,19 @@ contract EdgePayment is OApp, ReentrancyGuard {
     uint256 public replenishThreshold;
 
     uint128 public lzGasLimit = 200000;
+    uint128 public lzComposeGasLimit = 150000;
+
+    enum InvoiceStatus { None, Pending, Settled }
+
+    struct Invoice {
+        address payer;
+        address merchant;
+        uint256 amount;
+        uint256 fee;
+        InvoiceStatus status;
+    }
+
+    mapping(bytes32 => Invoice) public invoices;
 
     event PaymentProcessed(
         bytes32 indexed paymentId,
@@ -32,6 +45,7 @@ contract EdgePayment is OApp, ReentrancyGuard {
         uint256 fee
     );
     event MessageSent(bytes32 indexed paymentId, bytes32 guid);
+    event InvoiceSettled(bytes32 indexed paymentId);
     event VaultWithdrawn(address indexed to, uint256 amount);
     event ReplenishThresholdUpdated(uint256 oldThreshold, uint256 newThreshold);
     event ReplenishTriggered(uint256 vaultBalance);
@@ -53,6 +67,7 @@ contract EdgePayment is OApp, ReentrancyGuard {
         uint256 fee
     ) external payable nonReentrant {
         require(amount > 0, "Amount must be greater than 0");
+        require(invoices[paymentId].status == InvoiceStatus.None, "Invoice already exists");
 
         uint256 total = amount + fee;
 
@@ -60,10 +75,24 @@ contract EdgePayment is OApp, ReentrancyGuard {
 
         vault += total;
 
+        // Store invoice
+        invoices[paymentId] = Invoice({
+            payer: msg.sender,
+            merchant: merchant,
+            amount: amount,
+            fee: fee,
+            status: InvoiceStatus.Pending
+        });
+
         emit PaymentProcessed(paymentId, msg.sender, merchant, amount, fee);
 
-        bytes memory payload = abi.encode(paymentId, merchant, amount, fee);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(lzGasLimit, 0);
+        // Encode payload with source chain EID for return message
+        bytes memory payload = abi.encode(paymentId, merchant, amount, fee, endpoint.eid());
+
+        // Options: lzReceive gas + lzCompose gas (for settlement + return message)
+        bytes memory options = OptionsBuilder.newOptions()
+            .addExecutorLzReceiveOption(lzGasLimit, 0)
+            .addExecutorLzComposeOption(0, lzComposeGasLimit, 0);
 
         MessagingFee memory msgFee = _quote(hubEid, payload, options, false);
         require(msg.value >= msgFee.nativeFee, "Insufficient fee for LZ message");
@@ -83,9 +112,15 @@ contract EdgePayment is OApp, ReentrancyGuard {
         uint256 amount,
         uint256 fee
     ) external view returns (MessagingFee memory) {
-        bytes memory payload = abi.encode(paymentId, merchant, amount, fee);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(lzGasLimit, 0);
+        bytes memory payload = abi.encode(paymentId, merchant, amount, fee, endpoint.eid());
+        bytes memory options = OptionsBuilder.newOptions()
+            .addExecutorLzReceiveOption(lzGasLimit, 0)
+            .addExecutorLzComposeOption(0, lzComposeGasLimit, 0);
         return _quote(hubEid, payload, options, false);
+    }
+
+    function setLzComposeGasLimit(uint128 _gasLimit) external onlyOwner {
+        lzComposeGasLimit = _gasLimit;
     }
 
     function setLzGasLimit(uint128 _gasLimit) external onlyOwner {
@@ -117,13 +152,24 @@ contract EdgePayment is OApp, ReentrancyGuard {
     }
 
     function _lzReceive(
-        Origin calldata /*_origin*/,
+        Origin calldata _origin,
         bytes32 /*_guid*/,
-        bytes calldata /*_message*/,
+        bytes calldata _message,
         address /*_executor*/,
         bytes calldata /*_extraData*/
     ) internal override {
-        // Edge contracts don't receive messages from hub
-        revert("Not implemented");
+        require(_origin.srcEid == hubEid, "Only hub can send");
+
+        bytes32 paymentId = abi.decode(_message, (bytes32));
+
+        require(invoices[paymentId].status == InvoiceStatus.Pending, "Invoice not pending");
+
+        invoices[paymentId].status = InvoiceStatus.Settled;
+
+        emit InvoiceSettled(paymentId);
+    }
+
+    function getInvoiceStatus(bytes32 paymentId) external view returns (InvoiceStatus) {
+        return invoices[paymentId].status;
     }
 }

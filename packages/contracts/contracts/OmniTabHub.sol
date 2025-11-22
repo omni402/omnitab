@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { OApp, MessagingFee, Origin } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
 import { ILayerZeroComposer } from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroComposer.sol";
+import { OptionsBuilder } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
 
 interface ISettlementPool {
     function settle(address merchant, uint256 amount) external;
@@ -18,16 +19,15 @@ interface ISettlementPool {
 /// @dev Receives LayerZero messages from edge chains and coordinates with SettlementPool
 contract OmniTabHub is OApp, ReentrancyGuard, ILayerZeroComposer {
     using SafeERC20 for IERC20;
+    using OptionsBuilder for bytes;
 
     IERC20 public immutable usdc;
     ISettlementPool public settlementPool;
 
+    uint128 public returnGasLimit = 100000;
+
     mapping(bytes32 => bool) public processedPayments;
     mapping(uint32 => bool) public trustedEdges;
-
-    event ComposeReceived(address indexed from, bytes32 guid, bytes message);
-    event TrustedEdgeUpdated(uint32 indexed eid, bool trusted);
-    event SettlementPoolUpdated(address oldPool, address newPool);
 
     event PaymentReceived(
         bytes32 indexed paymentId,
@@ -36,6 +36,10 @@ contract OmniTabHub is OApp, ReentrancyGuard, ILayerZeroComposer {
         uint256 fee,
         uint32 srcEid
     );
+    event PaymentSettled(bytes32 indexed paymentId, address indexed merchant, uint256 amount);
+    event SettlementConfirmationSent(bytes32 indexed paymentId, uint32 dstEid, bytes32 guid);
+    event TrustedEdgeUpdated(uint32 indexed eid, bool trusted);
+    event SettlementPoolUpdated(address oldPool, address newPool);
 
     constructor(
         address _endpoint,
@@ -49,7 +53,7 @@ contract OmniTabHub is OApp, ReentrancyGuard, ILayerZeroComposer {
 
     function _lzReceive(
         Origin calldata _origin,
-        bytes32 /*_guid*/,
+        bytes32 _guid,
         bytes calldata _message,
         address /*_executor*/,
         bytes calldata /*_extraData*/
@@ -60,15 +64,17 @@ contract OmniTabHub is OApp, ReentrancyGuard, ILayerZeroComposer {
             bytes32 paymentId,
             address merchant,
             uint256 amount,
-            uint256 fee
-        ) = abi.decode(_message, (bytes32, address, uint256, uint256));
+            uint256 fee,
+            uint32 srcEid
+        ) = abi.decode(_message, (bytes32, address, uint256, uint256, uint32));
 
         require(!processedPayments[paymentId], "Payment already processed");
         processedPayments[paymentId] = true;
 
-        settlementPool.settle(merchant, amount);
+        emit PaymentReceived(paymentId, merchant, amount, fee, srcEid);
 
-        emit PaymentReceived(paymentId, merchant, amount, fee, _origin.srcEid);
+        // Send compose message to self for settlement + return message
+        endpoint.sendCompose(address(this), _guid, 0, _message);
     }
 
     function setTrustedEdge(uint32 _eid, bool _trusted) external onlyOwner {
@@ -88,13 +94,39 @@ contract OmniTabHub is OApp, ReentrancyGuard, ILayerZeroComposer {
 
     function lzCompose(
         address _from,
-        bytes32 _guid,
+        bytes32 /*_guid*/,
         bytes calldata _message,
         address /*_executor*/,
         bytes calldata /*_extraData*/
     ) external payable override {
         require(msg.sender == address(endpoint), "Only endpoint");
+        require(_from == address(this), "Invalid composer");
 
-        emit ComposeReceived(_from, _guid, _message);
+        (
+            bytes32 paymentId,
+            address merchant,
+            uint256 amount,
+            ,
+            uint32 srcEid
+        ) = abi.decode(_message, (bytes32, address, uint256, uint256, uint32));
+
+        // Settle to merchant
+        settlementPool.settle(merchant, amount);
+
+        emit PaymentSettled(paymentId, merchant, amount);
+
+        // Send confirmation back to source edge
+        bytes memory returnPayload = abi.encode(paymentId);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(returnGasLimit, 0);
+
+        bytes32 guid = _lzSend(srcEid, returnPayload, options, MessagingFee(msg.value, 0), payable(address(this))).guid;
+
+        emit SettlementConfirmationSent(paymentId, srcEid, guid);
     }
+
+    function setReturnGasLimit(uint128 _gasLimit) external onlyOwner {
+        returnGasLimit = _gasLimit;
+    }
+
+    receive() external payable {}
 }

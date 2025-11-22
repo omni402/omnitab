@@ -6,13 +6,14 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { OApp, MessagingFee, Origin } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
+import { ILayerZeroComposer } from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroComposer.sol";
 
 interface ISettlementPool {
     function settle(address merchant, uint256 amount) external;
     function replenish(uint256 amount) external;
 }
 
-contract OmniTabHub is OApp, ReentrancyGuard {
+contract OmniTabHub is OApp, ReentrancyGuard, ILayerZeroComposer {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable usdc;
@@ -20,6 +21,8 @@ contract OmniTabHub is OApp, ReentrancyGuard {
 
     mapping(bytes32 => bool) public processedPayments;
     mapping(uint32 => bool) public trustedEdges;
+
+    event ComposeReceived(address indexed from, bytes32 guid, bytes message);
 
     event PaymentReceived(
         bytes32 indexed paymentId,
@@ -61,5 +64,17 @@ contract OmniTabHub is OApp, ReentrancyGuard {
         settlementPool.settle(merchant, amount);
 
         emit PaymentReceived(paymentId, merchant, amount, fee, _origin.srcEid);
+    }
+
+    function lzCompose(
+        address _from,
+        bytes32 _guid,
+        bytes calldata _message,
+        address /*_executor*/,
+        bytes calldata /*_extraData*/
+    ) external payable override {
+        require(msg.sender == address(endpoint), "Only endpoint");
+
+        emit ComposeReceived(_from, _guid, _message);
     }
 }

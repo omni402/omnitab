@@ -8,6 +8,8 @@ export const EdgePaymentABI = [
       { name: "merchant", type: "address", indexed: true },
       { name: "amount", type: "uint256", indexed: false },
       { name: "fee", type: "uint256", indexed: false },
+      { name: "sourceToken", type: "address", indexed: false },
+      { name: "sourceAmount", type: "uint256", indexed: false },
     ],
   },
   {

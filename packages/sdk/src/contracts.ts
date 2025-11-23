@@ -1,4 +1,5 @@
 import type { PublicClient, WalletClient } from "viem";
+import { parseEventLogs } from "viem";
 import { getChainConfig } from "./chains";
 import type { TokenConfig } from "./types";
 
@@ -11,6 +12,8 @@ export const EdgePaymentABI = [
       { name: "merchant", type: "address" },
       { name: "amount", type: "uint256" },
       { name: "fee", type: "uint256" },
+      { name: "token", type: "address" },
+      { name: "tokenAmount", type: "uint256" },
     ],
     outputs: [],
     stateMutability: "payable",
@@ -116,13 +119,25 @@ export async function executePayment(
   merchant: `0x${string}`,
   amount: bigint,
   fee: bigint,
-  tokenAddress: `0x${string}`
+  tokenAddress: `0x${string}`,
+  tokenAmount: bigint
 ): Promise<{ hash: string; guid: string }> {
+  console.log("=== executePayment START ===");
+  console.log("chainId:", chainId);
+  console.log("paymentId:", paymentId);
+  console.log("merchant:", merchant);
+  console.log("amount:", amount.toString());
+  console.log("fee:", fee.toString());
+  console.log("tokenAddress:", tokenAddress);
+  console.log("tokenAmount:", tokenAmount.toString());
+
   const config = getChainConfig(chainId);
   if (!config) throw new Error(`Unsupported chain: ${chainId}`);
 
+  console.log("edgeContract:", config.edgeContract);
+
   const [account] = await walletClient.getAddresses();
-  const total = amount + fee;
+  console.log("account:", account);
 
   const allowance = await publicClient.readContract({
     address: tokenAddress,
@@ -131,18 +146,31 @@ export async function executePayment(
     args: [account, config.edgeContract],
   });
 
-  if (allowance < total) {
+  console.log("current allowance:", allowance.toString());
+  console.log("need allowance:", tokenAmount.toString());
+
+  if (allowance < tokenAmount) {
+    console.log("=== APPROVING ===");
+    console.log("approve token:", tokenAddress);
+    console.log("approve spender:", config.edgeContract);
+    console.log("approve amount:", tokenAmount.toString());
+
     const approveHash = await walletClient.writeContract({
       address: tokenAddress,
       abi: ERC20ABI,
       functionName: "approve",
-      args: [config.edgeContract, total],
+      args: [config.edgeContract, tokenAmount],
       account,
       chain: walletClient.chain,
     });
+    console.log("approve tx hash:", approveHash);
     await publicClient.waitForTransactionReceipt({ hash: approveHash });
+    console.log("approve confirmed");
+  } else {
+    console.log("allowance sufficient, skipping approve");
   }
 
+  console.log("=== GETTING LZ FEE ===");
   const lzFee = await quoteLzFee(
     publicClient,
     chainId,
@@ -151,27 +179,48 @@ export async function executePayment(
     amount,
     fee
   );
+  console.log("lzFee:", lzFee.toString());
+
+  console.log("=== CALLING PAY ===");
+  console.log("pay args:", {
+    paymentId,
+    merchant,
+    amount: amount.toString(),
+    fee: fee.toString(),
+    tokenAddress,
+    tokenAmount: tokenAmount.toString(),
+  });
 
   const hash = await walletClient.writeContract({
     address: config.edgeContract,
     abi: EdgePaymentABI,
     functionName: "pay",
-    args: [paymentId, merchant, amount, fee],
+    args: [paymentId, merchant, amount, fee, tokenAddress, tokenAmount],
     value: lzFee,
     account,
     chain: walletClient.chain,
   });
+  console.log("tx hash:", hash);
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
+  // Parse MessageSent event to get the guid
   let guid = "0x";
-  for (const log of receipt.logs) {
-    try {
-      if (log.topics[0] === "0x" + "MessageSent".padEnd(64, "0")) {
-        guid = log.data;
-        break;
-      }
-    } catch {}
+  try {
+    const messageSentLogs = parseEventLogs({
+      abi: EdgePaymentABI,
+      logs: receipt.logs,
+      eventName: 'MessageSent'
+    });
+
+    if (messageSentLogs.length > 0) {
+      guid = messageSentLogs[0].args.guid;
+      console.log("Extracted guid from MessageSent event:", guid);
+    } else {
+      console.warn("No MessageSent event found in receipt logs");
+    }
+  } catch (e) {
+    console.error("Failed to parse MessageSent event:", e);
   }
 
   return { hash, guid };

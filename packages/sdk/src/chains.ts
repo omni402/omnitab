@@ -5,7 +5,7 @@ export const SUPPORTED_CHAINS: Record<number, ChainConfig> = {
     chainId: 42161,
     name: "arbitrum",
     rpcUrl: "https://arb1.arbitrum.io/rpc",
-    edgeContract: "0x0506263eb2Cc3908C7528F8eE3Dc2ad4d92A6a8E",
+    edgeContract: "0x668ce153F67B3F205b4ac7E4D5053cA16E827afA",
     tokens: [
       { address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", symbol: "USDC", decimals: 6 },
       { address: "0x912CE59144191C1204E64559FE8253a0e49E6548", symbol: "ARB", decimals: 18 },

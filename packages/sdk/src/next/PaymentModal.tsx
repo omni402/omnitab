@@ -10,6 +10,8 @@ interface PaymentModalProps {
   onClose: () => void;
   status: "idle" | "pending" | "success" | "error";
   txHash: string | null;
+  guid: string | null;
+  chainId: number | null;
 }
 
 export function PaymentModal({
@@ -19,7 +21,20 @@ export function PaymentModal({
   onClose,
   status,
   txHash,
+  guid,
+  chainId,
 }: PaymentModalProps) {
+  const getExplorerUrl = (hash: string) => {
+    if (chainId === 42161) return `https://arbiscan.io/tx/${hash}`;
+    if (chainId === 137) return `https://polygonscan.com/tx/${hash}`;
+    return `https://etherscan.io/tx/${hash}`;
+  };
+
+  const getExplorerName = () => {
+    if (chainId === 42161) return "Arbiscan";
+    if (chainId === 137) return "Polygonscan";
+    return "Etherscan";
+  };
   const requirement = invoice.accepts[0];
   const amountUsd = (Number(requirement.maxAmountRequired) / 1e6).toFixed(2);
 
@@ -28,7 +43,7 @@ export function PaymentModal({
       style={{
         position: "fixed",
         inset: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        backgroundColor: "rgba(0, 0, 0, 0.7)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -37,12 +52,14 @@ export function PaymentModal({
     >
       <div
         style={{
-          backgroundColor: "white",
+          backgroundColor: "#141414",
           borderRadius: "12px",
           padding: "24px",
           maxWidth: "400px",
           width: "100%",
-          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
+          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.3)",
+          border: "1px solid #2a2a2a",
+          color: "white",
         }}
       >
         <div
@@ -72,14 +89,15 @@ export function PaymentModal({
 
         <div
           style={{
-            backgroundColor: "#f3f4f6",
+            backgroundColor: "#1a1a1a",
             borderRadius: "8px",
             padding: "16px",
             marginBottom: "16px",
+            border: "1px solid #2a2a2a",
           }}
         >
-          <div style={{ fontSize: "14px", color: "#6b7280" }}>Amount</div>
-          <div style={{ fontSize: "24px", fontWeight: 700 }}>${amountUsd}</div>
+          <div style={{ fontSize: "14px", color: "#9ca3af" }}>Amount</div>
+          <div style={{ fontSize: "24px", fontWeight: 700, color: "white" }}>${amountUsd}</div>
         </div>
 
         {status === "idle" && (
@@ -107,30 +125,31 @@ export function PaymentModal({
                       justifyContent: "space-between",
                       alignItems: "center",
                       padding: "12px 16px",
-                      border: "1px solid #e5e7eb",
+                      border: "1px solid #2a2a2a",
                       borderRadius: "8px",
-                      backgroundColor: "white",
+                      backgroundColor: "#1a1a1a",
                       cursor: "pointer",
                       transition: "all 0.15s",
+                      color: "white",
                     }}
                     onMouseOver={(e) => {
-                      e.currentTarget.style.borderColor = "#3b82f6";
-                      e.currentTarget.style.backgroundColor = "#eff6ff";
+                      e.currentTarget.style.borderColor = "#0052FF";
+                      e.currentTarget.style.backgroundColor = "#0052FF15";
                     }}
                     onMouseOut={(e) => {
-                      e.currentTarget.style.borderColor = "#e5e7eb";
-                      e.currentTarget.style.backgroundColor = "white";
+                      e.currentTarget.style.borderColor = "#2a2a2a";
+                      e.currentTarget.style.backgroundColor = "#1a1a1a";
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 600 }}>{option.symbol}</div>
-                      <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                      <div style={{ fontWeight: 600, color: "white" }}>{option.symbol}</div>
+                      <div style={{ fontSize: "12px", color: "#9ca3af" }}>
                         {option.chainId === 42161 ? "Arbitrum" : "Polygon"}
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: "14px" }}>{balance}</div>
-                      <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                      <div style={{ fontSize: "14px", color: "white" }}>{balance}</div>
+                      <div style={{ fontSize: "12px", color: "#9ca3af" }}>
                         Balance
                       </div>
                     </div>
@@ -147,15 +166,15 @@ export function PaymentModal({
               style={{
                 width: "40px",
                 height: "40px",
-                border: "3px solid #e5e7eb",
-                borderTopColor: "#3b82f6",
+                border: "3px solid #2a2a2a",
+                borderTopColor: "#0052FF",
                 borderRadius: "50%",
                 animation: "spin 1s linear infinite",
                 margin: "0 auto 16px",
               }}
             />
-            <div style={{ fontWeight: 600 }}>Processing Payment</div>
-            <div style={{ fontSize: "14px", color: "#6b7280" }}>
+            <div style={{ fontWeight: 600, color: "white" }}>Processing Payment</div>
+            <div style={{ fontSize: "14px", color: "#9ca3af" }}>
               Please confirm in your wallet
             </div>
             <style>{`
@@ -184,21 +203,37 @@ export function PaymentModal({
             >
               ✓
             </div>
-            <div style={{ fontWeight: 600 }}>Payment Successful</div>
-            {txHash && (
-              <a
-                href={`https://layerzeroscan.com/tx/${txHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  fontSize: "14px",
-                  color: "#3b82f6",
-                  textDecoration: "none",
-                }}
-              >
-                View on LayerZero Scan →
-              </a>
-            )}
+            <div style={{ fontWeight: 600, color: "white", marginBottom: "12px" }}>Payment Successful</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {txHash && (
+                <a
+                  href={getExplorerUrl(txHash)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: "14px",
+                    color: "#0052FF",
+                    textDecoration: "none",
+                  }}
+                >
+                  View on {getExplorerName()} →
+                </a>
+              )}
+              {guid && guid !== "0x" && (
+                <a
+                  href={`https://layerzeroscan.com/tx/${guid}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: "14px",
+                    color: "#0052FF",
+                    textDecoration: "none",
+                  }}
+                >
+                  View on LayerZero Scan →
+                </a>
+              )}
+            </div>
           </div>
         )}
 
@@ -220,8 +255,8 @@ export function PaymentModal({
             >
               ✕
             </div>
-            <div style={{ fontWeight: 600 }}>Payment Failed</div>
-            <div style={{ fontSize: "14px", color: "#6b7280" }}>
+            <div style={{ fontWeight: 600, color: "white" }}>Payment Failed</div>
+            <div style={{ fontSize: "14px", color: "#9ca3af" }}>
               Please try again
             </div>
           </div>

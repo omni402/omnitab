@@ -82,7 +82,8 @@ export class Omni402Client {
     invoice: Invoice,
     txHash: string,
     chainId: number,
-    lzMessageId: string
+    lzMessageId: string,
+    paymentId?: string
   ): string {
     const requirement = invoice.accepts[0];
     const chainConfig = getChainConfig(chainId);
@@ -94,7 +95,7 @@ export class Omni402Client {
       payload: {
         edgeTxHash: txHash,
         lzMessageId,
-        invoiceId: this.generateInvoiceId(requirement),
+        invoiceId: paymentId || this.generateInvoiceId(requirement),
         sourceChain: chainId,
       },
     };

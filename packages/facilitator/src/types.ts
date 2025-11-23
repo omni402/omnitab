@@ -1,6 +1,6 @@
 export interface PaymentPayload {
   x402Version: number;
-  scheme: "omnitab";
+  scheme: "omni402";
   network: string;
   payload: {
     edgeTxHash: string;
@@ -11,7 +11,7 @@ export interface PaymentPayload {
 }
 
 export interface PaymentRequirements {
-  scheme: "omnitab";
+  scheme: "omni402";
   network: "base";
   maxAmountRequired: string;
   payTo: string;

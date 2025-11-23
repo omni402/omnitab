@@ -52,17 +52,9 @@ async function main() {
 
   const OMNITAB_AMM_ADDRESS = process.env.OMNITAB_AMM_ADDRESS!;
 
-  const takerPrivateKey = process.env.TAKER_PRIVATE_KEY_TEST;
-  let trader: any;
-  if (takerPrivateKey) {
-    const provider = ethers.provider;
-    trader = new ethers.Wallet(takerPrivateKey.startsWith('0x') ? takerPrivateKey : '0x' + takerPrivateKey, provider);
-    console.log("Using separate taker wallet");
-  } else {
-    const signers = await ethers.getSigners();
-    trader = signers[0];
-    console.log("Using default signer as taker");
-  }
+  const signers = await ethers.getSigners();
+  const trader = signers[0];
+  console.log("Using deployer as taker");
 
   console.log("Executing Swap via SwapVM");
   console.log("Trader:", trader.address);
@@ -80,7 +72,7 @@ async function main() {
 
   const maker = process.env.MAKER_ADDRESS!;
   const feeBpsIn = 10;
-  const salt = 1n;
+  const salt = 3n;
 
   console.log("\nMaker (LP):", maker);
 

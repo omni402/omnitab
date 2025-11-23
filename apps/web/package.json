@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@omni402/sdk": "file:../../packages/sdk",
     "@coinbase/cdp-core": "^0.0.67",
     "@coinbase/cdp-hooks": "^0.0.67",
     "@coinbase/cdp-react": "^0.0.67",

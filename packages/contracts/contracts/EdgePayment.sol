@@ -8,6 +8,21 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { OApp, MessagingFee, Origin } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
 import { OptionsBuilder } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
 
+interface ISwapVM {
+    struct Order {
+        address maker;
+        uint256 traits;
+        bytes data;
+    }
+    function swap(
+        Order calldata order,
+        address tokenIn,
+        address tokenOut,
+        uint256 amount,
+        bytes calldata takerData
+    ) external returns (uint256 amountOut);
+}
+
 /// @title EdgePayment
 /// @notice Edge chain contract for processing x402 payments and sending LayerZero messages to hub
 /// @dev Deployed on source chains (Arbitrum, Polygon) to accept payments and notify Base hub
@@ -16,6 +31,7 @@ contract EdgePayment is OApp, ReentrancyGuard {
     using OptionsBuilder for bytes;
 
     IERC20 public immutable usdc;
+    ISwapVM public immutable swapVM;
 
     uint32 public immutable hubEid;
 
@@ -25,6 +41,11 @@ contract EdgePayment is OApp, ReentrancyGuard {
     uint128 public lzGasLimit = 200000;
     uint128 public lzComposeGasLimit = 150000;
 
+    // SwapVM order for token swaps
+    ISwapVM.Order public swapOrder;
+    address public swapTokenIn;  // The non-USDC token (e.g., ARB)
+    address public swapTokenOut; // USDC
+
     enum InvoiceStatus { None, Pending, Settled }
 
     struct Invoice {
@@ -32,48 +53,123 @@ contract EdgePayment is OApp, ReentrancyGuard {
         address merchant;
         uint256 amount;
         uint256 fee;
+        address sourceToken;
+        uint256 sourceAmount;
         InvoiceStatus status;
     }
 
     mapping(bytes32 => Invoice) public invoices;
+    mapping(address => bool) public supportedTokens;
 
     event PaymentProcessed(
         bytes32 indexed paymentId,
         address indexed payer,
         address indexed merchant,
         uint256 amount,
-        uint256 fee
+        uint256 fee,
+        address sourceToken,
+        uint256 sourceAmount
     );
     event MessageSent(bytes32 indexed paymentId, bytes32 guid);
     event InvoiceSettled(bytes32 indexed paymentId);
     event VaultWithdrawn(address indexed to, uint256 amount);
     event ReplenishThresholdUpdated(uint256 oldThreshold, uint256 newThreshold);
     event ReplenishTriggered(uint256 vaultBalance);
+    event TokenSupportUpdated(address indexed token, bool supported);
+    event SwapOrderUpdated(address maker, address tokenIn, address tokenOut);
 
     constructor(
         address _endpoint,
         address _delegate,
         address _usdc,
-        uint32 _hubEid
+        uint32 _hubEid,
+        address _swapVM
     ) OApp(_endpoint, _delegate) Ownable(_delegate) {
         usdc = IERC20(_usdc);
         hubEid = _hubEid;
+        swapVM = ISwapVM(_swapVM);
+        supportedTokens[_usdc] = true;
+    }
+
+    function setSupportedToken(address token, bool supported) external onlyOwner {
+        supportedTokens[token] = supported;
+        emit TokenSupportUpdated(token, supported);
+    }
+
+    function setSwapOrder(
+        address maker,
+        uint256 traits,
+        bytes calldata data,
+        address tokenIn,
+        address tokenOut
+    ) external onlyOwner {
+        swapOrder = ISwapVM.Order({
+            maker: maker,
+            traits: traits,
+            data: data
+        });
+        swapTokenIn = tokenIn;
+        swapTokenOut = tokenOut;
+        emit SwapOrderUpdated(maker, tokenIn, tokenOut);
     }
 
     function pay(
         bytes32 paymentId,
         address merchant,
         uint256 amount,
-        uint256 fee
+        uint256 fee,
+        address token,
+        uint256 tokenAmount
     ) external payable nonReentrant {
         require(amount > 0, "Amount must be greater than 0");
         require(invoices[paymentId].status == InvoiceStatus.None, "Invoice already exists");
+        require(supportedTokens[token], "Token not supported");
 
-        uint256 total = amount + fee;
+        uint256 usdcTotal = amount + fee;
+        uint256 sourceAmount;
+        address sourceToken = token;
 
-        usdc.safeTransferFrom(msg.sender, address(this), total);
+        // If paying with USDC, tokenAmount should match
+        if (token == address(usdc)) {
+            sourceAmount = usdcTotal;
+            IERC20(token).safeTransferFrom(msg.sender, address(this), usdcTotal);
+        } else {
+            // Paying with non-USDC token - need to swap
+            require(token == swapTokenIn, "Token not configured for swap");
+            require(tokenAmount > 0, "Token amount required for swap");
 
-        vault += total;
+            sourceAmount = tokenAmount;
+
+            // Transfer tokens from payer
+            IERC20(token).safeTransferFrom(msg.sender, address(this), tokenAmount);
+
+            // Approve SwapVM router to pull tokens
+            IERC20(token).approve(address(swapVM), tokenAmount);
+
+            // Build taker traits: IS_EXACT_IN | USE_TRANSFER_FROM_AND_AQUA_PUSH
+            // Format: 18 bytes slicesIndexes + 2 bytes flags
+            bytes memory takerData = abi.encodePacked(
+                bytes18(0),      // slicesIndexes (no threshold)
+                uint16(0x0041)   // flags: IS_EXACT_IN (0x0001) | USE_TRANSFER_FROM_AND_AQUA_PUSH (0x0040)
+            );
+
+            // Perform swap via SwapVM
+            uint256 swappedUsdc = swapVM.swap(
+                swapOrder,
+                token,           // tokenIn (e.g., ARB)
+                swapTokenOut,    // tokenOut (USDC)
+                tokenAmount,
+                takerData
+            );
+
+            // Verify we got enough USDC for the settlement
+            require(swappedUsdc >= usdcTotal, "Insufficient swap output");
+
+            // Keep original amount/fee (they're already in USDC)
+            // Any excess from swap stays in vault as extra fee
+        }
+
+        vault += usdcTotal;
 
         // Store invoice
         invoices[paymentId] = Invoice({
@@ -81,10 +177,12 @@ contract EdgePayment is OApp, ReentrancyGuard {
             merchant: merchant,
             amount: amount,
             fee: fee,
+            sourceToken: sourceToken,
+            sourceAmount: sourceAmount,
             status: InvoiceStatus.Pending
         });
 
-        emit PaymentProcessed(paymentId, msg.sender, merchant, amount, fee);
+        emit PaymentProcessed(paymentId, msg.sender, merchant, amount, fee, sourceToken, sourceAmount);
 
         // Encode payload with source chain EID for return message
         bytes memory payload = abi.encode(paymentId, merchant, amount, fee, endpoint.eid());

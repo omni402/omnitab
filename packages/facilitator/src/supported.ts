@@ -12,7 +12,7 @@ export function getSupported(): SupportedResponse {
   }));
 
   return {
-    kinds: [{ scheme: "omnitab", network: "base" }],
+    kinds: [{ scheme: "omni402", network: "base" }],
     sourceChains,
   };
 }

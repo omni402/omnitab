@@ -7,41 +7,42 @@ async function main() {
   const network = await ethers.provider.getNetwork();
   console.log("Network:", network.name, "ChainId:", network.chainId);
 
+  const SWAPVM_ROUTER = "0x8fdd04dbf6111437b44bbca99c28882434e0958f";
+
   const config: Record<number, {
     usdc: string;
     lzEndpoint: string;
     hubEid?: number;
     isHub?: boolean;
+    swapVM?: string;
+    supportedTokens?: string[];
   }> = {
+    // Base (Hub)
     8453: {
       usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
       lzEndpoint: "0x1a44076050125825900e736c501f859c50fE728c",
       isHub: true,
     },
+    // Arbitrum (Edge)
     42161: {
       usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
       lzEndpoint: "0x1a44076050125825900e736c501f859c50fE728c",
       hubEid: 30184,
+      swapVM: SWAPVM_ROUTER,
+      supportedTokens: [
+        "0x912CE59144191C1204E64559FE8253a0e49E6548", // ARB
+        "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", // WETH
+      ],
     },
+    // Polygon (Edge)
     137: {
       usdc: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
       lzEndpoint: "0x1a44076050125825900e736c501f859c50fE728c",
       hubEid: 30184,
-    },
-    84532: {
-      usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-      lzEndpoint: "0x6EDCE65403992e310A62460808c4b910D972f10f",
-      isHub: true,
-    },
-    421614: {
-      usdc: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
-      lzEndpoint: "0x6EDCE65403992e310A62460808c4b910D972f10f",
-      hubEid: 40245,
-    },
-    80002: {
-      usdc: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
-      lzEndpoint: "0x6EDCE65403992e310A62460808c4b910D972f10f",
-      hubEid: 40245,
+      swapVM: SWAPVM_ROUTER,
+      supportedTokens: [
+        "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", // WMATIC
+      ],
     },
   };
 
@@ -78,10 +79,21 @@ async function main() {
       networkConfig.lzEndpoint,
       deployer.address,
       networkConfig.usdc,
-      networkConfig.hubEid!
+      networkConfig.hubEid!,
+      networkConfig.swapVM!
     );
     await edge.waitForDeployment();
-    console.log("EdgePayment:", await edge.getAddress());
+    const edgeAddress = await edge.getAddress();
+    console.log("EdgePayment:", edgeAddress);
+
+    // Set supported tokens
+    if (networkConfig.supportedTokens && networkConfig.supportedTokens.length > 0) {
+      console.log("\nSetting supported tokens...");
+      for (const token of networkConfig.supportedTokens) {
+        await edge.setSupportedToken(token, true);
+        console.log("  Added:", token);
+      }
+    }
   }
 
   console.log("\nDone!");

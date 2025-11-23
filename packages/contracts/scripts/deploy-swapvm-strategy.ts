@@ -46,7 +46,7 @@ async function main() {
   console.log("USDC:", ethers.formatUnits(usdcBalance, 6));
 
   const feeBpsIn = 10;
-  const salt = 1n;
+  const salt = 3n;
 
   const order = await omniTabAMM.buildProgram(
     deployer.address,
@@ -76,10 +76,6 @@ async function main() {
     console.log("USDC approved");
   }
 
-  console.log("\nShipping liquidity to Aqua...");
-  console.log("ARB:", ethers.formatUnits(arbLiquidity, 18));
-  console.log("USDC:", ethers.formatUnits(usdcLiquidity, 6));
-
   const orderStruct = {
     maker: order.maker,
     traits: order.traits,
@@ -91,6 +87,40 @@ async function main() {
     [orderStruct]
   );
 
+  const strategyHash = ethers.keccak256(encodedOrder);
+  console.log("\nStrategy Hash:", strategyHash);
+
+  // Check if strategy already exists and dock it first
+  try {
+    const [existingArbBalance, existingUsdcBalance] = await aqua.safeBalances(
+      deployer.address,
+      SWAPVM_ROUTER,
+      strategyHash,
+      TOKENS.ARB,
+      TOKENS.USDC
+    );
+
+    if (existingArbBalance > 0n || existingUsdcBalance > 0n) {
+      console.log("\nExisting strategy found, docking...");
+      console.log("ARB:", ethers.formatUnits(existingArbBalance, 18));
+      console.log("USDC:", ethers.formatUnits(existingUsdcBalance, 6));
+
+      const dockTx = await aqua.dock(
+        SWAPVM_ROUTER,
+        strategyHash,
+        [TOKENS.ARB, TOKENS.USDC]
+      );
+      await dockTx.wait();
+      console.log("Docked existing strategy");
+    }
+  } catch (e) {
+    console.log("No existing strategy to dock");
+  }
+
+  console.log("\nShipping liquidity to Aqua...");
+  console.log("ARB:", ethers.formatUnits(arbLiquidity, 18));
+  console.log("USDC:", ethers.formatUnits(usdcLiquidity, 6));
+
   const shipTx = await aqua.ship(
     SWAPVM_ROUTER,
     encodedOrder,
@@ -100,7 +130,6 @@ async function main() {
   const receipt = await shipTx.wait();
   console.log("Shipped:", receipt?.hash);
 
-  const strategyHash = ethers.keccak256(encodedOrder);
   console.log("\nOmniTabAMM:", ammAddress);
   console.log("Strategy Hash:", strategyHash);
 }

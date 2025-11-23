@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const PaymentPayloadSchema = z.object({
   x402Version: z.number(),
-  scheme: z.literal("omnitab"),
+  scheme: z.literal("omni402"),
   network: z.string(),
   payload: z.object({
     edgeTxHash: z.string(),
@@ -13,7 +13,7 @@ export const PaymentPayloadSchema = z.object({
 });
 
 export const PaymentRequirementsSchema = z.object({
-  scheme: z.literal("omnitab"),
+  scheme: z.literal("omni402"),
   network: z.literal("base"),
   maxAmountRequired: z.string(),
   payTo: z.string(),

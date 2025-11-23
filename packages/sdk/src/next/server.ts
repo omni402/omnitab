@@ -35,7 +35,7 @@ export function requirePayment(
           x402Version: 1,
           accepts: [
             {
-              scheme: "omnitab",
+              scheme: "omni402",
               network: "base",
               maxAmountRequired: config.amount,
               payTo: config.payTo,
@@ -66,7 +66,7 @@ export function requirePayment(
           x402Version: 1,
           paymentPayload: payload,
           paymentRequirements: {
-            scheme: "omnitab",
+            scheme: "omni402",
             network: "base",
             maxAmountRequired: config.amount,
             payTo: config.payTo,

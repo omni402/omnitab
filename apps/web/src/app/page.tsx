@@ -37,8 +37,8 @@ export default function Home() {
         </div>
       </nav>
 
-      <section className="bg-base-blue pt-32 pb-40 px-8">
-        <div className="max-w-7xl mx-auto text-center">
+      <section className="bg-base-blue min-h-screen flex items-center px-8">
+        <div className="max-w-7xl mx-auto text-center w-full">
           <div className="inline-block px-4 py-2 bg-white/10 rounded-full text-white text-sm font-medium mb-8">
             Omnichain x402 Payment Facilitator
           </div>
@@ -61,8 +61,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="how-it-works" className="py-32 px-8">
-        <div className="max-w-5xl mx-auto">
+      <section id="how-it-works" className="min-h-screen flex items-center px-8">
+        <div className="max-w-5xl mx-auto w-full">
           <h2 className="text-4xl md:text-5xl font-bold mb-20 text-center">How It Works</h2>
 
           <div className="space-y-16">
@@ -109,8 +109,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="merchants" className="py-32 px-8 bg-bg-secondary">
-        <div className="max-w-5xl mx-auto">
+      <section id="merchants" className="min-h-screen flex items-center px-8 bg-bg-secondary">
+        <div className="max-w-5xl mx-auto w-full">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">For Merchants</h2>
             <p className="text-xl text-gray-400 max-w-2xl mx-auto">
@@ -146,8 +146,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="liquidity" className="py-32 px-8">
-        <div className="max-w-5xl mx-auto">
+      <section id="liquidity" className="min-h-screen flex items-center px-8">
+        <div className="max-w-5xl mx-auto w-full">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">For Liquidity Providers</h2>
             <p className="text-xl text-gray-400 max-w-2xl mx-auto">
@@ -183,8 +183,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="integration" className="py-32 px-8 bg-bg-secondary">
-        <div className="max-w-4xl mx-auto">
+      <section id="integration" className="min-h-screen flex items-center px-8 bg-bg-secondary">
+        <div className="max-w-4xl mx-auto w-full">
           <h2 className="text-4xl md:text-5xl font-bold mb-6 text-center">Integration</h2>
           <p className="text-xl text-gray-400 mb-16 text-center">
             Two lines of code. That's it.
@@ -231,8 +231,8 @@ export default function Layout({ children }) {
         </div>
       </section>
 
-      <section className="py-32 px-8">
-        <div className="max-w-5xl mx-auto">
+      <section className="min-h-screen flex items-center px-8">
+        <div className="max-w-5xl mx-auto w-full">
           <h2 className="text-4xl md:text-5xl font-bold mb-6 text-center">Powered By</h2>
           <p className="text-xl text-gray-400 mb-16 text-center">
             Built on battle-tested infrastructure.
@@ -263,8 +263,8 @@ export default function Layout({ children }) {
         </div>
       </section>
 
-      <section className="py-32 px-8 bg-bg-secondary">
-        <div className="max-w-3xl mx-auto text-center">
+      <section className="min-h-screen flex items-center px-8 bg-bg-secondary">
+        <div className="max-w-3xl mx-auto text-center w-full">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">Start Building</h2>
           <p className="text-xl text-gray-400 mb-10">
             Accept omnichain payments today.

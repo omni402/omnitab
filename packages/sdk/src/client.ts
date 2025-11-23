@@ -10,16 +10,16 @@ import type {
   ChainConfig,
 } from "./types";
 
-export interface OmniTabClientConfig {
+export interface Omni402ClientConfig {
   facilitatorUrl: string;
   chains?: ChainConfig[];
 }
 
-export class OmniTabClient {
+export class Omni402Client {
   private facilitatorUrl: string;
   private clients: Map<number, PublicClient> = new Map();
 
-  constructor(config: OmniTabClientConfig) {
+  constructor(config: Omni402ClientConfig) {
     this.facilitatorUrl = config.facilitatorUrl;
 
     this.clients.set(
@@ -89,7 +89,7 @@ export class OmniTabClient {
 
     const payload: PaymentPayload = {
       x402Version: 1,
-      scheme: "omnitab",
+      scheme: "omni402",
       network: chainConfig?.name || "unknown",
       payload: {
         edgeTxHash: txHash,

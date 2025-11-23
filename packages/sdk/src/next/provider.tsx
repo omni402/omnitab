@@ -9,33 +9,33 @@ import React, {
   useMemo,
 } from "react";
 import { useAccount, useWalletClient, usePublicClient } from "wagmi";
-import { OmniTabClient } from "../client";
+import { Omni402Client } from "../client";
 import { executePayment } from "../contracts";
 import { PaymentModal } from "./PaymentModal";
 import type { Invoice, PaymentOption, ChainConfig } from "../types";
 
-interface OmniTabContextValue {
-  client: OmniTabClient;
+interface Omni402ContextValue {
+  client: Omni402Client;
 }
 
-const OmniTabContext = createContext<OmniTabContextValue | null>(null);
+const Omni402Context = createContext<Omni402ContextValue | null>(null);
 
-interface OmniTabProviderProps {
+interface Omni402ProviderProps {
   children: React.ReactNode;
   facilitatorUrl: string;
   chains?: ChainConfig[];
 }
 
-export function OmniTabProvider({
+export function Omni402Provider({
   children,
   facilitatorUrl,
-}: OmniTabProviderProps) {
+}: Omni402ProviderProps) {
   const { address } = useAccount();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
   const client = useMemo(
-    () => new OmniTabClient({ facilitatorUrl }),
+    () => new Omni402Client({ facilitatorUrl }),
     [facilitatorUrl]
   );
 
@@ -169,7 +169,7 @@ export function OmniTabProvider({
   }, [pendingResolve]);
 
   return (
-    <OmniTabContext.Provider value={{ client }}>
+    <Omni402Context.Provider value={{ client }}>
       {children}
       {invoice && (
         <PaymentModal
@@ -181,13 +181,13 @@ export function OmniTabProvider({
           txHash={txHash}
         />
       )}
-    </OmniTabContext.Provider>
+    </Omni402Context.Provider>
   );
 }
 
-export function useOmniTabClient() {
-  const context = useContext(OmniTabContext);
+export function useOmni402Client() {
+  const context = useContext(Omni402Context);
   if (!context)
-    throw new Error("useOmniTabClient must be used within OmniTabProvider");
+    throw new Error("useOmni402Client must be used within Omni402Provider");
   return context.client;
 }

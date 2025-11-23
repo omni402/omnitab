@@ -219,9 +219,9 @@ export function PaymentModal({
                   View on {getExplorerName()} →
                 </a>
               )}
-              {guid && guid !== "0x" && (
+              {txHash && (
                 <a
-                  href={`https://layerzeroscan.com/tx/${guid}`}
+                  href={`https://layerzeroscan.com/tx/${txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{

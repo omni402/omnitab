@@ -3,7 +3,7 @@ import { requirePayment } from "@omni402/sdk/next";
 export const GET = requirePayment(
   {
     amount: "100000", // 0.1 USDC
-    payTo: "0xd2a26541518be2802a41c029ee7943994b996763", // Demo address
+    payTo: "0xA8bC2cDB7e86C4aB3c2F62dED22bC14f8149137c", // Merchant address
   },
   async (req) => {
     return Response.json({

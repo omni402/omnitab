@@ -30,6 +30,25 @@ app.get("/supported", (req, res) => {
   res.json(getSupported());
 });
 
+app.get("/payments/:merchant", async (req, res) => {
+  try {
+    const { merchant } = req.params;
+    const payments = await prisma.payment.findMany({
+      where: {
+        merchantAddress: merchant.toLowerCase(),
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 50,
+    });
+    res.json({ payments });
+  } catch (error) {
+    console.error("Error fetching payments:", error);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 app.post("/verify", async (req, res) => {
   try {
     const parsed = VerifyRequestSchema.safeParse(req.body);

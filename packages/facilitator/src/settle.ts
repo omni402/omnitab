@@ -36,14 +36,16 @@ export async function settlePayment(req: VerifyRequest): Promise<SettleResponse>
       data: {
         invoiceId,
         sourceChain,
-        payerAddress: verifyResult.payer!,
-        merchantAddress: paymentRequirements.payTo,
+        payerAddress: verifyResult.payer!.toLowerCase(),
+        merchantAddress: paymentRequirements.payTo.toLowerCase(),
         amount: paymentRequirements.maxAmountRequired,
         edgeTxHash,
         lzMessageId,
         status: "pending",
       },
     });
+
+    console.log(`Payment created: ${payment.id} for merchant ${payment.merchantAddress}`);
 
     return {
       success: true,

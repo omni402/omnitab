@@ -18,6 +18,7 @@ const HubABI = [
 const client = createPublicClient({
   chain: base,
   transport: http(config.rpc.base),
+  pollingInterval: 5_000, // Poll every 5 seconds instead of using filters
 });
 
 export async function startEventListener() {
@@ -27,6 +28,8 @@ export async function startEventListener() {
     address: config.contracts.hub,
     abi: HubABI,
     eventName: "PaymentSettled",
+    poll: true, // Use polling instead of filters (required for public RPC)
+    pollingInterval: 5_000,
     onLogs: async (logs) => {
       for (const log of logs) {
         const { paymentId, merchant, amount } = log.args;

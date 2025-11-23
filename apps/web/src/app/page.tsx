@@ -189,9 +189,9 @@ export default function Home() {
                 </div>
               </div>
 
-              <a href="/lp/settlement" className="inline-block mt-8 bg-green-500 hover:bg-green-600 px-6 py-3 rounded-xl font-semibold transition">
-                Deposit Liquidity
-              </a>
+              <button disabled className="inline-block mt-8 bg-green-500/50 px-6 py-3 rounded-xl font-semibold cursor-not-allowed opacity-50">
+                Deposit Liquidity (Coming Soon)
+              </button>
             </div>
 
             <div className="order-1 md:order-2 aspect-square bg-gray-800 rounded-2xl overflow-hidden">
@@ -245,9 +245,9 @@ export default function Home() {
                 </div>
               </div>
 
-              <a href="/lp/aqua" className="inline-block mt-8 bg-white text-black hover:bg-gray-200 px-6 py-3 rounded-xl font-semibold transition">
-                Provide Swap Liquidity
-              </a>
+              <button disabled className="inline-block mt-8 bg-white/50 text-black px-6 py-3 rounded-xl font-semibold cursor-not-allowed opacity-50">
+                Provide Swap Liquidity (Coming Soon)
+              </button>
             </div>
           </div>
         </div>

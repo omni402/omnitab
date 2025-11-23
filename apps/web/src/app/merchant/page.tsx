@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SignIn } from "@coinbase/cdp-react";
 import { useIsSignedIn, useEvmAddress, useSignOut } from "@coinbase/cdp-hooks";
+import { createPublicClient, http, formatUnits } from "viem";
+import { base } from "viem/chains";
 import {
   Copy,
   ArrowLeft,
@@ -19,12 +21,82 @@ import {
   XCircle
 } from "lucide-react";
 
+const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const HUB_ADDRESS = "0x78f0d4741f6d4a37a5f1448577f69bC1df74a349";
+
+const client = createPublicClient({
+  chain: base,
+  transport: http(),
+});
+
+interface Payment {
+  paymentId: string;
+  amount: bigint;
+  timestamp: Date;
+  txHash: string;
+  sourceChain: number;
+  status: string;
+}
+
 export default function MerchantPage() {
   const { isSignedIn } = useIsSignedIn();
   const { evmAddress } = useEvmAddress();
   const { signOut } = useSignOut();
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "payments" | "developers">("overview");
+  const [balance, setBalance] = useState<bigint>(BigInt(0));
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch USDC balance and payment history
+  useEffect(() => {
+    if (!evmAddress) return;
+
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Fetch USDC balance
+        const balanceResult = await client.readContract({
+          address: USDC_ADDRESS,
+          abi: [{
+            name: "balanceOf",
+            type: "function",
+            stateMutability: "view",
+            inputs: [{ name: "account", type: "address" }],
+            outputs: [{ name: "", type: "uint256" }],
+          }],
+          functionName: "balanceOf",
+          args: [evmAddress as `0x${string}`],
+        });
+        setBalance(balanceResult as bigint);
+
+        // Fetch payments from facilitator
+        const historyRes = await fetch(`/api/balance-history?address=${evmAddress}`);
+        if (historyRes.ok) {
+          const data = await historyRes.json();
+          console.log("Payments data:", data);
+
+          if (data.payments && Array.isArray(data.payments)) {
+            const mappedPayments: Payment[] = data.payments.map((p: any) => ({
+              paymentId: p.invoiceId,
+              amount: BigInt(p.amount),
+              timestamp: new Date(p.createdAt),
+              txHash: p.settlementTxHash || p.edgeTxHash,
+              sourceChain: p.sourceChain,
+              status: p.status,
+            }));
+            setPayments(mappedPayments);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [evmAddress]);
 
   const copyAddress = () => {
     if (evmAddress) {
@@ -114,7 +186,9 @@ export default function MerchantPage() {
                   <span className="text-gray-400 text-sm">Balance</span>
                   <DollarSign className="w-4 h-4 text-gray-500" />
                 </div>
-                <div className="text-3xl font-bold mb-2">$0.00</div>
+                <div className="text-3xl font-bold mb-2">
+                  {loading ? "..." : `$${formatUnits(balance, 6)}`}
+                </div>
                 <div className="text-sm text-gray-500">USDC on Base</div>
               </div>
 
@@ -123,7 +197,9 @@ export default function MerchantPage() {
                   <span className="text-gray-400 text-sm">Total Volume</span>
                   <TrendingUp className="w-4 h-4 text-gray-500" />
                 </div>
-                <div className="text-3xl font-bold mb-2">$0.00</div>
+                <div className="text-3xl font-bold mb-2">
+                  {loading ? "..." : `$${formatUnits(payments.reduce((acc, p) => acc + p.amount, BigInt(0)), 6)}`}
+                </div>
                 <div className="text-sm text-gray-500">All time</div>
               </div>
 
@@ -132,7 +208,7 @@ export default function MerchantPage() {
                   <span className="text-gray-400 text-sm">Payments</span>
                   <CheckCircle className="w-4 h-4 text-gray-500" />
                 </div>
-                <div className="text-3xl font-bold mb-2">0</div>
+                <div className="text-3xl font-bold mb-2">{loading ? "..." : payments.length}</div>
                 <div className="text-sm text-gray-500">Successful</div>
               </div>
             </div>
@@ -148,13 +224,43 @@ export default function MerchantPage() {
                     View all
                   </button>
                 </div>
-                <div className="text-center py-8">
-                  <div className="w-12 h-12 bg-bg-tertiary rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Clock className="w-6 h-6 text-gray-500" />
+                {loading ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-400 text-sm">Loading...</p>
                   </div>
-                  <p className="text-gray-400 text-sm">No payments yet</p>
-                  <p className="text-gray-500 text-xs mt-1">Payments will appear here once you integrate</p>
-                </div>
+                ) : payments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 bg-bg-tertiary rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Clock className="w-6 h-6 text-gray-500" />
+                    </div>
+                    <p className="text-gray-400 text-sm">No payments yet</p>
+                    <p className="text-gray-500 text-xs mt-1">Payments will appear here once you integrate</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {payments.slice(0, 3).map((payment) => (
+                      <div key={payment.paymentId} className="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
+                            <ArrowDownRight className="w-4 h-4 text-green-400" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium">+${formatUnits(payment.amount, 6)} USDC</div>
+                            <div className="text-xs text-gray-500">{payment.timestamp.toLocaleDateString()}</div>
+                          </div>
+                        </div>
+                        <a
+                          href={`https://basescan.org/tx/${payment.txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-gray-400 hover:text-white"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="bg-bg-secondary rounded-xl p-6">
@@ -228,15 +334,62 @@ export default function MerchantPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td colSpan={5} className="px-6 py-16 text-center">
-                      <div className="w-12 h-12 bg-bg-tertiary rounded-full flex items-center justify-center mx-auto mb-4">
-                        <DollarSign className="w-6 h-6 text-gray-500" />
-                      </div>
-                      <p className="text-gray-400 mb-1">No payments yet</p>
-                      <p className="text-gray-500 text-sm">When you receive payments, they'll show up here.</p>
-                    </td>
-                  </tr>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-16 text-center">
+                        <p className="text-gray-400">Loading...</p>
+                      </td>
+                    </tr>
+                  ) : payments.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-16 text-center">
+                        <div className="w-12 h-12 bg-bg-tertiary rounded-full flex items-center justify-center mx-auto mb-4">
+                          <DollarSign className="w-6 h-6 text-gray-500" />
+                        </div>
+                        <p className="text-gray-400 mb-1">No payments yet</p>
+                        <p className="text-gray-500 text-sm">When you receive payments, they'll show up here.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    payments.map((payment) => (
+                      <tr key={payment.paymentId} className="border-b border-gray-800 last:border-0">
+                        <td className="px-6 py-4">
+                          <div className="font-medium">${formatUnits(payment.amount, 6)}</div>
+                          <div className="text-sm text-gray-500">USDC</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-sm rounded-full ${
+                            payment.status === "settled"
+                              ? "bg-green-500/20 text-green-400"
+                              : "bg-yellow-500/20 text-yellow-400"
+                          }`}>
+                            {payment.status === "settled" ? (
+                              <CheckCircle className="w-3 h-3" />
+                            ) : (
+                              <Clock className="w-3 h-3" />
+                            )}
+                            {payment.status === "settled" ? "Settled" : "Pending"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-400">
+                          {payment.sourceChain === 42161 ? "Arbitrum" : payment.sourceChain === 137 ? "Polygon" : `Chain ${payment.sourceChain}`}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-400">
+                          {payment.timestamp.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4">
+                          <a
+                            href={`https://basescan.org/tx/${payment.txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-gray-400 hover:text-white"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

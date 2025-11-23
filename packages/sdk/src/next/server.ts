@@ -87,20 +87,23 @@ export function requirePayment(
 
       const facilitatorUrl = config.facilitatorUrl || process.env.NEXT_PUBLIC_FACILITATOR_URL || "http://localhost:3001";
 
+      const requestBody = JSON.stringify({
+        x402Version: 1,
+        paymentPayload: payload,
+        paymentRequirements: {
+          scheme: "omni402",
+          network: "base",
+          maxAmountRequired: config.amount,
+          payTo: config.payTo,
+          resource: config.resource || req.url,
+        },
+      });
+
+      // First verify the payment
       const verifyResponse = await fetch(`${facilitatorUrl}/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          x402Version: 1,
-          paymentPayload: payload,
-          paymentRequirements: {
-            scheme: "omni402",
-            network: "base",
-            maxAmountRequired: config.amount,
-            payTo: config.payTo,
-            resource: config.resource || req.url,
-          },
-        }),
+        body: requestBody,
       });
 
       const verifyResult = await verifyResponse.json();
@@ -117,6 +120,13 @@ export function requirePayment(
           }
         );
       }
+
+      // Then settle (store) the payment
+      await fetch(`${facilitatorUrl}/settle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: requestBody,
+      });
 
       return handler(req);
     } catch (error) {

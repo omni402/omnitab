@@ -25,35 +25,33 @@ export default function AppPage() {
             </div>
           </a>
 
-          <a
-            href="/lp/settlement"
-            className="block bg-bg-secondary p-6 rounded-2xl hover:bg-bg-tertiary transition border border-transparent hover:border-green-500/50"
+          <div
+            className="block bg-bg-secondary p-6 rounded-2xl border border-transparent opacity-50 cursor-not-allowed"
           >
             <div className="flex items-center gap-4">
-              <Landmark className="w-8 h-8 text-green-400 flex-shrink-0" />
+              <Landmark className="w-8 h-8 text-green-400/50 flex-shrink-0" />
               <div>
-                <h3 className="font-semibold text-lg mb-1">Settlement LP</h3>
-                <p className="text-gray-400 text-sm">
-                  Deposit USDC on Base, earn fees from every payment that flows through
+                <h3 className="font-semibold text-lg mb-1 text-gray-500">Settlement LP</h3>
+                <p className="text-gray-500 text-sm">
+                  Coming soon - Deposit USDC on Base, earn fees from every payment
                 </p>
               </div>
             </div>
-          </a>
+          </div>
 
-          <a
-            href="/lp/aqua"
-            className="block bg-bg-secondary p-6 rounded-2xl hover:bg-bg-tertiary transition border border-transparent hover:border-white/50"
+          <div
+            className="block bg-bg-secondary p-6 rounded-2xl border border-transparent opacity-50 cursor-not-allowed"
           >
             <div className="flex items-center gap-4">
-              <ArrowLeftRight className="w-8 h-8 text-white flex-shrink-0" />
+              <ArrowLeftRight className="w-8 h-8 text-white/50 flex-shrink-0" />
               <div>
-                <h3 className="font-semibold text-lg mb-1">Aqua LP</h3>
-                <p className="text-gray-400 text-sm">
-                  Provide swap liquidity on edge chains, earn from token conversions
+                <h3 className="font-semibold text-lg mb-1 text-gray-500">Aqua LP</h3>
+                <p className="text-gray-500 text-sm">
+                  Coming soon - Provide swap liquidity on edge chains
                 </p>
               </div>
             </div>
-          </a>
+          </div>
         </div>
 
         <div className="mt-8 text-center">
